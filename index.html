@@ -9,11 +9,420 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-        .animate-spin { animation: spin 1s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.5;
+            color: #1f2937;
+        }
+        
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        
+        .bg-gradient {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0e7ff 100%);
+            min-height: 100vh;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .title {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+        }
+        
+        .subtitle {
+            color: #6b7280;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-purple {
+            background: #7c3aed;
+            color: white;
+        }
+        
+        .btn-purple:hover:not(:disabled) {
+            background: #6d28d9;
+        }
+        
+        .btn-blue {
+            background: #2563eb;
+            color: white;
+        }
+        
+        .btn-blue:hover {
+            background: #1d4ed8;
+        }
+        
+        .btn-green {
+            background: #16a34a;
+            color: white;
+        }
+        
+        .btn-green:hover {
+            background: #15803d;
+        }
+        
+        .status-box {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .status-info {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+        }
+        
+        .status-error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+        }
+        
+        .status-flex {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .spinner {
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid transparent;
+            border-top: 2px solid #2563eb;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+        }
+        
+        .empty-icon {
+            width: 4rem;
+            height: 4rem;
+            margin: 0 auto 1rem;
+            color: #9ca3af;
+        }
+        
+        .empty-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+        }
+        
+        .empty-text {
+            color: #6b7280;
+            margin-bottom: 1rem;
+        }
+        
+        .sheet-item {
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background: #f9fafb;
+        }
+        
+        .sheet-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        
+        .sheet-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .sheet-subtitle {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        
+        .btn-danger {
+            color: #dc2626;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.25rem;
+        }
+        
+        .btn-danger:hover {
+            color: #b91c1c;
+        }
+        
+        .grid {
+            display: grid;
+            gap: 1rem;
+        }
+        
+        .grid-cols-2 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .grid-cols-4 {
+            grid-template-columns: repeat(4, 1fr);
+        }
+        
+        @media (max-width: 768px) {
+            .grid-cols-2, .grid-cols-4 {
+                grid-template-columns: 1fr;
+            }
+            
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .btn-group {
+                justify-content: center;
+            }
+        }
+        
+        .input {
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+        
+        .input:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .stat-card {
+            padding: 1rem;
+            border-radius: 0.5rem;
+        }
+        
+        .stat-blue { background: #eff6ff; }
+        .stat-green { background: #f0fdf4; }
+        .stat-purple { background: #faf5ff; }
+        .stat-orange { background: #fff7ed; }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+        
+        .stat-blue .stat-value { color: #2563eb; }
+        .stat-green .stat-value { color: #16a34a; }
+        .stat-purple .stat-value { color: #7c3aed; }
+        .stat-orange .stat-value { color: #ea580c; }
+        
+        .stat-label {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            z-index: 50;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            max-width: 1200px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1f2937;
+        }
+        
+        .modal-body {
+            padding: 1.5rem;
+        }
+        
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #d1d5db;
+        }
+        
+        .table th,
+        .table td {
+            border: 1px solid #d1d5db;
+            padding: 0.75rem;
+            text-align: left;
+        }
+        
+        .table th {
+            background: #f9fafb;
+            font-weight: 600;
+        }
+        
+        .table tbody tr:hover {
+            background: #f9fafb;
+        }
+        
+        .text-right {
+            text-align: right;
+        }
+        
+        .overflow-x-auto {
+            overflow-x: auto;
+        }
+        
+        .sheet-list {
+            background: #f9fafb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .sheet-list-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .sheet-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.25rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .sheet-list-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .sheet-info {
+            flex: 1;
+        }
+        
+        .sheet-name {
+            font-weight: 500;
+        }
+        
+        .sheet-details {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-left: 0.5rem;
+        }
+        
+        .sheet-stats {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        
+        .error-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .error-item {
+            font-size: 0.875rem;
+            color: #dc2626;
+            margin-bottom: 0.25rem;
+        }
+        
+        .error-item:before {
+            content: "• ";
+        }
     </style>
 </head>
 <body>
@@ -21,7 +430,7 @@
 
     <script type="text/babel">
         const { useState, useRef } = React;
-        const { Upload, Download, Plus, Trash2, Calculator, FileText, Eye, AlertCircle } = lucide;
+        const { Upload, Download, Plus, Trash2, Calculator, FileText, AlertCircle } = lucide;
 
         const DeliverySheetConsolidator = () => {
             const [sheets, setSheets] = useState([]);
@@ -34,8 +443,6 @@
 
             // Parse PDF text to extract delivery data
             const parsePDFContent = (text, filename) => {
-                const lines = text.split('\n').map(line => line.trim()).filter(line => line);
-                
                 try {
                     // Extract customer information
                     const customerInfo = {};
@@ -64,8 +471,6 @@
                     
                     if (itemSectionMatch) {
                         const itemSection = itemSectionMatch[1];
-                        
-                        // Split by lines and process each product line
                         const itemLines = itemSection.split('\n').filter(line => line.trim());
                         
                         let currentItem = null;
@@ -242,90 +647,6 @@
                 }
             };
 
-            // Add a new sheet manually
-            const addNewSheet = () => {
-                const newSheet = {
-                    id: Date.now(),
-                    customerName: '',
-                    customerNumber: '',
-                    deliveryDate: '',
-                    deliveryNumber: '',
-                    items: [],
-                    vatBreakdown: { vat14: 0, vat25_5: 0 },
-                    totalExVat: 0,
-                    totalIncVat: 0
-                };
-                setSheets([...sheets, newSheet]);
-            };
-
-            // Update sheet data
-            const updateSheet = (sheetId, field, value) => {
-                setSheets(sheets.map(sheet => 
-                    sheet.id === sheetId ? { ...sheet, [field]: value } : sheet
-                ));
-            };
-
-            // Add item to sheet
-            const addItemToSheet = (sheetId) => {
-                const newItem = {
-                    id: Date.now(),
-                    name: '',
-                    quantity: 0,
-                    unitPriceExVat: 0,
-                    unitPriceIncVat: 0,
-                    totalExVat: 0,
-                    totalIncVat: 0,
-                    eanCode: ''
-                };
-                
-                setSheets(sheets.map(sheet => 
-                    sheet.id === sheetId 
-                        ? { ...sheet, items: [...sheet.items, newItem] }
-                        : sheet
-                ));
-            };
-
-            // Update item in sheet
-            const updateItem = (sheetId, itemId, field, value) => {
-                setSheets(sheets.map(sheet => 
-                    sheet.id === sheetId 
-                        ? {
-                            ...sheet,
-                            items: sheet.items.map(item => 
-                                item.id === itemId 
-                                    ? { 
-                                        ...item, 
-                                        [field]: value,
-                                        // Auto-calculate totals when quantity or price changes
-                                        ...(field === 'quantity' || field === 'unitPriceExVat' ? {
-                                            totalExVat: (field === 'quantity' ? value : item.quantity) * (field === 'unitPriceExVat' ? value : item.unitPriceExVat),
-                                            totalIncVat: (field === 'quantity' ? value : item.quantity) * (field === 'unitPriceIncVat' ? value : item.unitPriceIncVat)
-                                        } : {}),
-                                        ...(field === 'quantity' || field === 'unitPriceIncVat' ? {
-                                            totalIncVat: (field === 'quantity' ? value : item.quantity) * (field === 'unitPriceIncVat' ? value : item.unitPriceIncVat)
-                                        } : {})
-                                    }
-                                    : item
-                            )
-                        }
-                        : sheet
-                ));
-            };
-
-            // Remove item from sheet
-            const removeItem = (sheetId, itemId) => {
-                setSheets(sheets.map(sheet => 
-                    sheet.id === sheetId 
-                        ? { ...sheet, items: sheet.items.filter(item => item.id !== itemId) }
-                        : sheet
-                ));
-            };
-
-            // Remove sheet
-            const removeSheet = (sheetId) => {
-                setSheets(sheets.filter(sheet => sheet.id !== sheetId));
-            };
-
             // Generate consolidated summary
             const generateSummary = () => {
                 if (sheets.length === 0) return;
@@ -433,15 +754,15 @@
                 URL.revokeObjectURL(url);
             };
 
-            return React.createElement('div', { className: "min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4" },
-                React.createElement('div', { className: "max-w-7xl mx-auto" },
-                    React.createElement('div', { className: "bg-white rounded-2xl shadow-xl p-6 mb-6" },
-                        React.createElement('div', { className: "flex items-center justify-between mb-6" },
+            return React.createElement('div', { className: "bg-gradient" },
+                React.createElement('div', { className: "container" },
+                    React.createElement('div', { className: "card" },
+                        React.createElement('div', { className: "header" },
                             React.createElement('div', null,
-                                React.createElement('h1', { className: "text-3xl font-bold text-gray-900 mb-2" }, "Delivery Sheet Consolidator"),
-                                React.createElement('p', { className: "text-gray-600" }, "Upload PDF delivery sheets and automatically consolidate them")
+                                React.createElement('h1', { className: "title" }, "Delivery Sheet Consolidator"),
+                                React.createElement('p', { className: "subtitle" }, "Upload PDF delivery sheets and automatically consolidate them")
                             ),
-                            React.createElement('div', { className: "flex gap-3" },
+                            React.createElement('div', { className: "btn-group" },
                                 React.createElement('input', {
                                     type: "file",
                                     ref: fileInputRef,
@@ -453,21 +774,14 @@
                                 React.createElement('button', {
                                     onClick: () => fileInputRef.current?.click(),
                                     disabled: isProcessing,
-                                    className: "flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                                    className: "btn btn-purple"
                                 },
                                     React.createElement(Upload, { size: 20 }),
                                     isProcessing ? 'Processing...' : 'Upload PDFs'
                                 ),
-                                React.createElement('button', {
-                                    onClick: addNewSheet,
-                                    className: "flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                                },
-                                    React.createElement(Plus, { size: 20 }),
-                                    "Add Manual"
-                                ),
                                 sheets.length > 0 && React.createElement('button', {
                                     onClick: generateSummary,
-                                    className: "flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                                    className: "btn btn-green"
                                 },
                                     React.createElement(Calculator, { size: 20 }),
                                     "Generate Summary"
@@ -476,57 +790,49 @@
                         ),
                         
                         // Processing Status
-                        (isProcessing || processingStatus) && React.createElement('div', { className: "mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg" },
-                            React.createElement('div', { className: "flex items-center gap-2" },
-                                isProcessing && React.createElement('div', { className: "animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" }),
-                                React.createElement('span', { className: "text-blue-800" }, processingStatus)
+                        (isProcessing || processingStatus) && React.createElement('div', { className: "status-box status-info" },
+                            React.createElement('div', { className: "status-flex" },
+                                isProcessing && React.createElement('div', { className: "spinner" }),
+                                React.createElement('span', null, processingStatus)
                             )
                         ),
 
                         // Errors
-                        errors.length > 0 && React.createElement('div', { className: "mb-4 p-4 bg-red-50 border border-red-200 rounded-lg" },
-                            React.createElement('div', { className: "flex items-start gap-2" },
-                                React.createElement(AlertCircle, { size: 20, className: "text-red-600 flex-shrink-0 mt-0.5" }),
+                        errors.length > 0 && React.createElement('div', { className: "status-box status-error" },
+                            React.createElement('div', { className: "status-flex" },
+                                React.createElement(AlertCircle, { size: 20 }),
                                 React.createElement('div', null,
-                                    React.createElement('h4', { className: "text-red-800 font-medium mb-1" }, "Processing Errors:"),
-                                    React.createElement('ul', { className: "text-red-700 text-sm space-y-1" },
+                                    React.createElement('h4', { style: { fontWeight: 500, marginBottom: '0.25rem' } }, "Processing Errors:"),
+                                    React.createElement('ul', { className: "error-list" },
                                         errors.map((error, index) =>
-                                            React.createElement('li', { key: index }, `• ${error}`)
+                                            React.createElement('li', { key: index, className: "error-item" }, error)
                                         )
                                     )
                                 )
                             )
                         ),
 
-                        sheets.length === 0 && !isProcessing && React.createElement('div', { className: "text-center py-12" },
-                            React.createElement(FileText, { size: 64, className: "mx-auto text-gray-400 mb-4" }),
-                            React.createElement('h3', { className: "text-xl font-semibold text-gray-900 mb-2" }, "No delivery sheets loaded yet"),
-                            React.createElement('p', { className: "text-gray-600 mb-4" }, "Upload PDF delivery sheets or add manual entries to get started"),
-                            React.createElement('div', { className: "flex gap-4 justify-center" },
-                                React.createElement('button', {
-                                    onClick: () => fileInputRef.current?.click(),
-                                    className: "bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors"
-                                }, "Upload PDF Files"),
-                                React.createElement('button', {
-                                    onClick: addNewSheet,
-                                    className: "bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-                                }, "Add Manual Entry")
-                            )
+                        sheets.length === 0 && !isProcessing && React.createElement('div', { className: "empty-state" },
+                            React.createElement(FileText, { size: 64, className: "empty-icon" }),
+                            React.createElement('h3', { className: "empty-title" }, "No delivery sheets loaded yet"),
+                            React.createElement('p', { className: "empty-text" }, "Upload PDF delivery sheets to get started"),
+                            React.createElement('button', {
+                                onClick: () => fileInputRef.current?.click(),
+                                className: "btn btn-purple"
+                            }, "Upload PDF Files")
                         ),
 
                         // Summary display for sheets
-                        sheets.length > 0 && React.createElement('div', { className: "mb-4 p-4 bg-gray-50 rounded-lg" },
-                            React.createElement('h3', { className: "text-lg font-semibold mb-2" }, `${sheets.length} Delivery Sheets Loaded`),
-                            React.createElement('div', { className: "space-y-2" },
-                                sheets.map((sheet, index) =>
-                                    React.createElement('div', { key: sheet.id, className: "flex justify-between items-center p-2 bg-white rounded border" },
-                                        React.createElement('div', null,
-                                            React.createElement('span', { className: "font-medium" }, sheet.filename || `Manual Sheet #${index + 1}`),
-                                            sheet.customerName && React.createElement('span', { className: "text-gray-600 ml-2" }, `- ${sheet.customerName}`)
-                                        ),
-                                        React.createElement('div', { className: "text-sm text-gray-600" },
-                                            `${sheet.items.length} items, €${(sheet.totalIncVat || 0).toFixed(2)}`
-                                        )
+                        sheets.length > 0 && React.createElement('div', { className: "sheet-list" },
+                            React.createElement('h3', { className: "sheet-list-title" }, `${sheets.length} Delivery Sheets Loaded`),
+                            sheets.map((sheet, index) =>
+                                React.createElement('div', { key: sheet.id, className: "sheet-list-item" },
+                                    React.createElement('div', { className: "sheet-info" },
+                                        React.createElement('span', { className: "sheet-name" }, sheet.filename || `Manual Sheet #${index + 1}`),
+                                        sheet.customerName && React.createElement('span', { className: "sheet-details" }, `- ${sheet.customerName}`)
+                                    ),
+                                    React.createElement('div', { className: "sheet-stats" },
+                                        `${sheet.items.length} items, €${(sheet.totalIncVat || 0).toFixed(2)}`
                                     )
                                 )
                             )
@@ -534,66 +840,66 @@
                     ),
 
                     // Summary Modal
-                    showSummary && summary && React.createElement('div', { className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" },
-                        React.createElement('div', { className: "bg-white rounded-2xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto" },
-                            React.createElement('div', { className: "p-6" },
-                                React.createElement('div', { className: "flex items-center justify-between mb-6" },
-                                    React.createElement('h2', { className: "text-2xl font-bold text-gray-900" }, "Consolidated Summary"),
-                                    React.createElement('div', { className: "flex gap-2" },
-                                        React.createElement('button', {
-                                            onClick: exportToCSV,
-                                            className: "flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                                        },
-                                            React.createElement(Download, { size: 20 }),
-                                            "Export CSV"
-                                        ),
-                                        React.createElement('button', {
-                                            onClick: () => setShowSummary(false),
-                                            className: "text-gray-600 hover:text-gray-800 transition-colors"
-                                        }, "✕")
-                                    )
-                                ),
-
-                                React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-4 gap-4 mb-6" },
-                                    React.createElement('div', { className: "bg-blue-50 p-4 rounded-lg" },
-                                        React.createElement('div', { className: "text-2xl font-bold text-blue-600" }, summary.totalSheets),
-                                        React.createElement('div', { className: "text-sm text-gray-600" }, "Total Sheets")
+                    showSummary && summary && React.createElement('div', { className: "modal" },
+                        React.createElement('div', { className: "modal-content" },
+                            React.createElement('div', { className: "modal-header" },
+                                React.createElement('h2', { className: "modal-title" }, "Consolidated Summary"),
+                                React.createElement('div', { className: "btn-group" },
+                                    React.createElement('button', {
+                                        onClick: exportToCSV,
+                                        className: "btn btn-green"
+                                    },
+                                        React.createElement(Download, { size: 20 }),
+                                        "Export CSV"
                                     ),
-                                    React.createElement('div', { className: "bg-green-50 p-4 rounded-lg" },
-                                        React.createElement('div', { className: "text-2xl font-bold text-green-600" }, `€${summary.totals.totalExVat.toFixed(2)}`),
-                                        React.createElement('div', { className: "text-sm text-gray-600" }, "Total Ex VAT")
+                                    React.createElement('button', {
+                                        onClick: () => setShowSummary(false),
+                                        className: "btn-danger",
+                                        style: { fontSize: '1.5rem', padding: '0.25rem 0.5rem' }
+                                    }, "×")
+                                )
+                            ),
+                            React.createElement('div', { className: "modal-body" },
+                                React.createElement('div', { className: "summary-grid" },
+                                    React.createElement('div', { className: "stat-card stat-blue" },
+                                        React.createElement('div', { className: "stat-value" }, summary.totalSheets),
+                                        React.createElement('div', { className: "stat-label" }, "Total Sheets")
                                     ),
-                                    React.createElement('div', { className: "bg-purple-50 p-4 rounded-lg" },
-                                        React.createElement('div', { className: "text-2xl font-bold text-purple-600" }, `€${summary.totals.totalIncVat.toFixed(2)}`),
-                                        React.createElement('div', { className: "text-sm text-gray-600" }, "Total Inc VAT")
+                                    React.createElement('div', { className: "stat-card stat-green" },
+                                        React.createElement('div', { className: "stat-value" }, `€${summary.totals.totalExVat.toFixed(2)}`),
+                                        React.createElement('div', { className: "stat-label" }, "Total Ex VAT")
                                     ),
-                                    React.createElement('div', { className: "bg-orange-50 p-4 rounded-lg" },
-                                        React.createElement('div', { className: "text-2xl font-bold text-orange-600" }, `€${summary.totals.totalVat.toFixed(2)}`),
-                                        React.createElement('div', { className: "text-sm text-gray-600" }, "Total VAT")
+                                    React.createElement('div', { className: "stat-card stat-purple" },
+                                        React.createElement('div', { className: "stat-value" }, `€${summary.totals.totalIncVat.toFixed(2)}`),
+                                        React.createElement('div', { className: "stat-label" }, "Total Inc VAT")
+                                    ),
+                                    React.createElement('div', { className: "stat-card stat-orange" },
+                                        React.createElement('div', { className: "stat-value" }, `€${summary.totals.totalVat.toFixed(2)}`),
+                                        React.createElement('div', { className: "stat-label" }, "Total VAT")
                                     )
                                 ),
 
                                 React.createElement('div', { className: "overflow-x-auto" },
-                                    React.createElement('table', { className: "w-full border-collapse border border-gray-200" },
+                                    React.createElement('table', { className: "table" },
                                         React.createElement('thead', null,
-                                            React.createElement('tr', { className: "bg-gray-50" },
-                                                React.createElement('th', { className: "border border-gray-200 p-3 text-left" }, "Product Name"),
-                                                React.createElement('th', { className: "border border-gray-200 p-3 text-right" }, "Total Qty"),
-                                                React.createElement('th', { className: "border border-gray-200 p-3 text-right" }, "Total Ex VAT"),
-                                                React.createElement('th', { className: "border border-gray-200 p-3 text-right" }, "Total Inc VAT"),
-                                                React.createElement('th', { className: "border border-gray-200 p-3 text-right" }, "Avg Unit Price"),
-                                                React.createElement('th', { className: "border border-gray-200 p-3 text-right" }, "Times Ordered")
+                                            React.createElement('tr', null,
+                                                React.createElement('th', null, "Product Name"),
+                                                React.createElement('th', { className: "text-right" }, "Total Qty"),
+                                                React.createElement('th', { className: "text-right" }, "Total Ex VAT"),
+                                                React.createElement('th', { className: "text-right" }, "Total Inc VAT"),
+                                                React.createElement('th', { className: "text-right" }, "Avg Unit Price"),
+                                                React.createElement('th', { className: "text-right" }, "Times Ordered")
                                             )
                                         ),
                                         React.createElement('tbody', null,
                                             summary.consolidatedItems.map((item, index) =>
-                                                React.createElement('tr', { key: index, className: "hover:bg-gray-50" },
-                                                    React.createElement('td', { className: "border border-gray-200 p-3" }, item.name),
-                                                    React.createElement('td', { className: "border border-gray-200 p-3 text-right" }, item.totalQuantity),
-                                                    React.createElement('td', { className: "border border-gray-200 p-3 text-right" }, `€${item.totalExVat.toFixed(2)}`),
-                                                    React.createElement('td', { className: "border border-gray-200 p-3 text-right" }, `€${item.totalIncVat.toFixed(2)}`),
-                                                    React.createElement('td', { className: "border border-gray-200 p-3 text-right" }, `€${item.averageUnitPriceExVat.toFixed(2)}`),
-                                                    React.createElement('td', { className: "border border-gray-200 p-3 text-right" }, item.occurrences)
+                                                React.createElement('tr', { key: index },
+                                                    React.createElement('td', null, item.name),
+                                                    React.createElement('td', { className: "text-right" }, item.totalQuantity),
+                                                    React.createElement('td', { className: "text-right" }, `€${item.totalExVat.toFixed(2)}`),
+                                                    React.createElement('td', { className: "text-right" }, `€${item.totalIncVat.toFixed(2)}`),
+                                                    React.createElement('td', { className: "text-right" }, `€${item.averageUnitPriceExVat.toFixed(2)}`),
+                                                    React.createElement('td', { className: "text-right" }, item.occurrences)
                                                 )
                                             )
                                         )
