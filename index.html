@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery Sheet Consolidator</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .animate-spin { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef } = React;
+        const { Upload, Download, Plus, Trash2, Calculator, FileText, Eye, AlertCircle } = lucide;
+
+        const DeliverySheetConsolidator = () => {
+            const [sheets, setSheets] = useState([]);
+            const [summary, setSummary] = useState(null);
+            const [showSummary, setShowSummary] = useState(false);
+            const [isProcessing, setIsProcessing] = useState(false);
+            const [processingStatus, setProcessingStatus] = useState('');
+            const [errors, setErrors] = useState([]);
+            const fileInputRef = useRef(null);
+
+            // Parse PDF text to extract delivery data
+            const parsePDFContent = (text, filename) => {
+                const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+                
+                try {
+                    // Extract customer information
+                    const customerInfo = {};
+                    const customerNumberMatch = text.match(/Asiakasnumero:\s*(\d+)/);
+                    if (customerNumberMatch) customerInfo.customerNumber = customerNumberMatch[1];
+                    
+                    // Find customer name - usually the line after customer number
+                    const customerNameMatch = text.match(/Asiakasnumero:\s*\d+\s*\n([^\n]+)/);
+                    if (customerNameMatch) customerInfo.customerName = customerNameMatch[1].trim();
+                    
+                    // Extract delivery date
+                    const deliveryDateMatch = text.match(/Toimituspäivä:\s*(\d{1,2}\.\d{1,2}\.\d{4})/);
+                    let deliveryDate = '';
+                    if (deliveryDateMatch) {
+                        const [day, month, year] = deliveryDateMatch[1].split('.');
+                        deliveryDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                    }
+                    
+                    // Extract delivery number
+                    const deliveryNumberMatch = text.match(/Kuljetusnumero:\s*([^\s]+)/);
+                    const deliveryNumber = deliveryNumberMatch ? deliveryNumberMatch[1] : '';
+                    
+                    // Extract items from "Toimitetut tuoterivit" section
+                    const items = [];
+                    const itemSectionMatch = text.match(/Toimitetut tuoterivit(.*?)(?=ALV-Erittely|$)/s);
+                    
+                    if (itemSectionMatch) {
+                        const itemSection = itemSectionMatch[1];
+                        
+                        // Split by lines and process each product line
+                        const itemLines = itemSection.split('\n').filter(line => line.trim());
+                        
+                        let currentItem = null;
+                        
+                        for (let i = 0; i < itemLines.length; i++) {
+                            const line = itemLines[i].trim();
+                            
+                            // Skip headers and empty lines
+                            if (line.includes('TUOTEEN NIMI') || line.includes('TOIMITETTU') || !line) continue;
+                            
+                            // Look for price patterns (contains €)
+                            const priceMatch = line.match(/(\d+(?:,\d+)?)\s*€.*?(\d+(?:,\d+)?)\s*€.*?(\d+(?:,\d+)?)\s*€.*?(\d+(?:,\d+)?)\s*€/);
+                            
+                            if (priceMatch && currentItem) {
+                                // This line contains pricing info for the current item
+                                const unitPriceExVat = parseFloat(priceMatch[1].replace(',', '.'));
+                                const unitPriceIncVat = parseFloat(priceMatch[2].replace(',', '.'));
+                                const totalExVat = parseFloat(priceMatch[3].replace(',', '.'));
+                                const totalIncVat = parseFloat(priceMatch[4].replace(',', '.'));
+                                
+                                currentItem.unitPriceExVat = unitPriceExVat;
+                                currentItem.unitPriceIncVat = unitPriceIncVat;
+                                currentItem.totalExVat = totalExVat;
+                                currentItem.totalIncVat = totalIncVat;
+                                
+                                // Extract EAN code from this line if present
+                                const eanMatch = line.match(/(\d{13})/);
+                                if (eanMatch) {
+                                    currentItem.eanCode = eanMatch[1];
+                                }
+                                
+                                items.push(currentItem);
+                                currentItem = null;
+                            } else if (!line.match(/^\d/) && !line.includes('€') && line.length > 10) {
+                                // This looks like a product name line
+                                currentItem = {
+                                    id: Date.now() + Math.random(),
+                                    name: line,
+                                    quantity: 0,
+                                    unitPriceExVat: 0,
+                                    unitPriceIncVat: 0,
+                                    totalExVat: 0,
+                                    totalIncVat: 0,
+                                    eanCode: ''
+                                };
+                                
+                                // Look for quantity in the next few lines
+                                for (let j = i + 1; j < Math.min(i + 3, itemLines.length); j++) {
+                                    const nextLine = itemLines[j];
+                                    const qtyMatch = nextLine.match(/(\d+(?:,\d+)?)\s*\/\s*(\d+)/);
+                                    if (qtyMatch) {
+                                        currentItem.quantity = parseFloat(qtyMatch[1].replace(',', '.'));
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Extract VAT breakdown
+                    const vatBreakdown = { vat14: 0, vat25_5: 0 };
+                    const vat14Match = text.match(/14\s*%.*?(\d+(?:,\d+)?)\s*€.*?(\d+(?:,\d+)?)\s*€.*?(\d+(?:,\d+)?)\s*€/);
+                    const vat255Match = text.match(/25\.5\s*%.*?(\d+(?:,\d+)?)\s*€.*?(\d+(?:,\d+)?)\s*€.*?(\d+(?:,\d+)?)\s*€/);
+                    
+                    if (vat14Match) {
+                        vatBreakdown.vat14 = parseFloat(vat14Match[3].replace(',', '.'));
+                    }
+                    if (vat255Match) {
+                        vatBreakdown.vat25_5 = parseFloat(vat255Match[3].replace(',', '.'));
+                    }
+                    
+                    // Calculate totals
+                    const totalExVat = items.reduce((sum, item) => sum + item.totalExVat, 0);
+                    const totalIncVat = items.reduce((sum, item) => sum + item.totalIncVat, 0);
+                    
+                    return {
+                        id: Date.now() + Math.random(),
+                        customerName: customerInfo.customerName || '',
+                        customerNumber: customerInfo.customerNumber || '',
+                        deliveryDate,
+                        deliveryNumber,
+                        items,
+                        vatBreakdown,
+                        totalExVat,
+                        totalIncVat,
+                        filename
+                    };
+                    
+                } catch (error) {
+                    console.error('Error parsing PDF content:', error);
+                    throw new Error(`Failed to parse ${filename}: ${error.message}`);
+                }
+            };
+
+            // Handle PDF file uploads
+            const handleFileUpload = async (event) => {
+                const files = Array.from(event.target.files);
+                if (files.length === 0) return;
+
+                setIsProcessing(true);
+                setProcessingStatus('Loading PDF.js...');
+                setErrors([]);
+
+                try {
+                    // PDF.js is already loaded
+                    if (window.pdfjsLib) {
+                        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                    }
+                    
+                    const newSheets = [];
+                    const processingErrors = [];
+
+                    for (let i = 0; i < files.length; i++) {
+                        const file = files[i];
+                        setProcessingStatus(`Processing ${file.name} (${i + 1}/${files.length})...`);
+
+                        try {
+                            if (file.type !== 'application/pdf') {
+                                throw new Error('File must be a PDF');
+                            }
+
+                            // Read file as array buffer
+                            const arrayBuffer = await file.arrayBuffer();
+                            
+                            // Load PDF document
+                            const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                            
+                            let fullText = '';
+                            
+                            // Extract text from all pages
+                            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                                const page = await pdf.getPage(pageNum);
+                                const textContent = await page.getTextContent();
+                                const pageText = textContent.items.map(item => item.str).join(' ');
+                                fullText += pageText + '\n';
+                            }
+                            
+                            // Parse the extracted text
+                            const sheetData = parsePDFContent(fullText, file.name);
+                            newSheets.push(sheetData);
+                            
+                        } catch (error) {
+                            console.error(`Error processing ${file.name}:`, error);
+                            processingErrors.push(`${file.name}: ${error.message}`);
+                        }
+                    }
+
+                    // Add successfully processed sheets
+                    if (newSheets.length > 0) {
+                        setSheets(prevSheets => [...prevSheets, ...newSheets]);
+                    }
+
+                    // Set errors if any
+                    if (processingErrors.length > 0) {
+                        setErrors(processingErrors);
+                    }
+
+                    setProcessingStatus(`Successfully processed ${newSheets.length} files`);
+                    
+                } catch (error) {
+                    console.error('Error in file upload:', error);
+                    setErrors([`Failed to load PDF processing: ${error.message}`]);
+                } finally {
+                    setIsProcessing(false);
+                    if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                    }
+                    
+                    // Clear status after 3 seconds
+                    setTimeout(() => {
+                        setProcessingStatus('');
+                        setErrors([]);
+                    }, 3000);
+                }
+            };
+
+            // Add a new sheet manually
+            const addNewSheet = () => {
+                const newSheet = {
+                    id: Date.now(),
+                    customerName: '',
+                    customerNumber: '',
+                    deliveryDate: '',
+                    deliveryNumber: '',
+                    items: [],
+                    vatBreakdown: { vat14: 0, vat25_5: 0 },
+                    totalExVat: 0,
+                    totalIncVat: 0
+                };
+                setSheets([...sheets, newSheet]);
+            };
+
+            // Update sheet data
+            const updateSheet = (sheetId, field, value) => {
+                setSheets(sheets.map(sheet => 
+                    sheet.id === sheetId ? { ...sheet, [field]: value } : sheet
+                ));
+            };
+
+            // Add item to sheet
+            const addItemToSheet = (sheetId) => {
+                const newItem = {
+                    id: Date.now(),
+                    name: '',
+                    quantity: 0,
+                    unitPriceExVat: 0,
+                    unitPriceIncVat: 0,
+                    totalExVat: 0,
+                    totalIncVat: 0,
+                    eanCode: ''
+                };
+                
+                setSheets(sheets.map(sheet => 
+                    sheet.id === sheetId 
+                        ? { ...sheet, items: [...sheet.items, newItem] }
+                        : sheet
+                ));
+            };
+
+            // Update item in sheet
+            const updateItem = (sheetId, itemId, field, value) => {
+                setSheets(sheets.map(sheet => 
+                    sheet.id === sheetId 
+                        ? {
+                            ...sheet,
+                            items: sheet.items.map(item => 
+                                item.id === itemId 
+                                    ? { 
+                                        ...item, 
+                                        [field]: value,
+                                        // Auto-calculate totals when quantity or price changes
+                                        ...(field === 'quantity' || field === 'unitPriceExVat' ? {
+                                            totalExVat: (field === 'quantity' ? value : item.quantity) * (field === 'unitPriceExVat' ? value : item.unitPriceExVat),
+                                            totalIncVat: (field === 'quantity' ? value : item.quantity) * (field === 'unitPriceIncVat' ? value : item.unitPriceIncVat)
+                                        } : {}),
+                                        ...(field === 'quantity' || field === 'unitPriceIncVat' ? {
+                                            totalIncVat: (field === 'quantity' ? value : item.quantity) * (field === 'unitPriceIncVat' ? value : item.unitPriceIncVat)
+                                        } : {})
+                                    }
+                                    : item
+                            )
+                        }
+                        : sheet
+                ));
+            };
+
+            // Remove item from sheet
+            const removeItem = (sheetId, itemId) => {
+                setSheets(sheets.map(sheet => 
+                    sheet.id === sheetId 
+                        ? { ...sheet, items: sheet.items.filter(item => item.id !== itemId) }
+                        : sheet
+                ));
+            };
+
+            // Remove sheet
+            const removeSheet = (sheetId) => {
+                setSheets(sheets.filter(sheet => sheet.id !== sheetId));
+            };
+
+            // Generate consolidated summary
+            const generateSummary = () => {
+                if (sheets.length === 0) return;
+
+                // Consolidate all items by name
+                const consolidatedItems = {};
+                const deliveryDates = [];
+                let totalExVat = 0;
+                let totalIncVat = 0;
+                let totalVat14 = 0;
+                let totalVat25_5 = 0;
+
+                sheets.forEach(sheet => {
+                    if (sheet.deliveryDate) deliveryDates.push(sheet.deliveryDate);
+                    
+                    sheet.items.forEach(item => {
+                        const key = item.name || 'Unknown Item';
+                        if (!consolidatedItems[key]) {
+                            consolidatedItems[key] = {
+                                name: key,
+                                totalQuantity: 0,
+                                totalExVat: 0,
+                                totalIncVat: 0,
+                                eanCode: item.eanCode,
+                                averageUnitPriceExVat: 0,
+                                averageUnitPriceIncVat: 0,
+                                occurrences: 0
+                            };
+                        }
+                        
+                        consolidatedItems[key].totalQuantity += item.quantity || 0;
+                        consolidatedItems[key].totalExVat += item.totalExVat || 0;
+                        consolidatedItems[key].totalIncVat += item.totalIncVat || 0;
+                        consolidatedItems[key].occurrences += 1;
+                    });
+
+                    totalExVat += sheet.totalExVat || 0;
+                    totalIncVat += sheet.totalIncVat || 0;
+                    totalVat14 += sheet.vatBreakdown?.vat14 || 0;
+                    totalVat25_5 += sheet.vatBreakdown?.vat25_5 || 0;
+                });
+
+                // Calculate average prices
+                Object.values(consolidatedItems).forEach(item => {
+                    if (item.totalQuantity > 0) {
+                        item.averageUnitPriceExVat = item.totalExVat / item.totalQuantity;
+                        item.averageUnitPriceIncVat = item.totalIncVat / item.totalQuantity;
+                    }
+                });
+
+                const summaryData = {
+                    totalSheets: sheets.length,
+                    dateRange: deliveryDates.length > 0 ? {
+                        from: Math.min(...deliveryDates.map(d => new Date(d))),
+                        to: Math.max(...deliveryDates.map(d => new Date(d)))
+                    } : null,
+                    consolidatedItems: Object.values(consolidatedItems),
+                    totals: {
+                        totalExVat,
+                        totalIncVat,
+                        totalVat: totalIncVat - totalExVat,
+                        vat14: totalVat14,
+                        vat25_5: totalVat25_5
+                    }
+                };
+
+                setSummary(summaryData);
+                setShowSummary(true);
+            };
+
+            // Export to CSV
+            const exportToCSV = () => {
+                if (!summary) return;
+
+                const csvContent = [
+                    ['Consolidated Delivery Summary'],
+                    [''],
+                    ['Summary Information'],
+                    ['Total Sheets', summary.totalSheets],
+                    ['Total Ex VAT', `€${summary.totals.totalExVat.toFixed(2)}`],
+                    ['Total Inc VAT', `€${summary.totals.totalIncVat.toFixed(2)}`],
+                    ['Total VAT', `€${summary.totals.totalVat.toFixed(2)}`],
+                    [''],
+                    ['Consolidated Items'],
+                    ['Product Name', 'Total Quantity', 'Total Ex VAT', 'Total Inc VAT', 'Avg Unit Price Ex VAT', 'Avg Unit Price Inc VAT', 'EAN Code', 'Times Ordered'],
+                    ...summary.consolidatedItems.map(item => [
+                        item.name,
+                        item.totalQuantity,
+                        `€${item.totalExVat.toFixed(2)}`,
+                        `€${item.totalIncVat.toFixed(2)}`,
+                        `€${item.averageUnitPriceExVat.toFixed(2)}`,
+                        `€${item.averageUnitPriceIncVat.toFixed(2)}`,
+                        item.eanCode,
+                        item.occurrences
+                    ])
+                ];
+
+                const csv = csvContent.map(row => row.join(',')).join('\n');
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `consolidated_delivery_summary_${new Date().toISOString().split('T')[0]}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+
+            return React.createElement('div', { className: "min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4" },
+                React.createElement('div', { className: "max-w-7xl mx-auto" },
+                    React.createElement('div', { className: "bg-white rounded-2xl shadow-xl p-6 mb-6" },
+                        React.createElement('div', { className: "flex items-center justify-between mb-6" },
+                            React.createElement('div', null,
+                                React.createElement('h1', { className: "text-3xl font-bold text-gray-900 mb-2" }, "Delivery Sheet Consolidator"),
+                                React.createElement('p', { className: "text-gray-600" }, "Upload PDF delivery sheets and automatically consolidate them")
+                            ),
+                            React.createElement('div', { className: "flex gap-3" },
+                                React.createElement('input', {
+                                    type: "file",
+                                    ref: fileInputRef,
+                                    onChange: handleFileUpload,
+                                    accept: ".pdf",
+                                    multiple: true,
+                                    className: "hidden"
+                                }),
+                                React.createElement('button', {
+                                    onClick: () => fileInputRef.current?.click(),
+                                    disabled: isProcessing,
+                                    className: "flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                                },
+                                    React.createElement(Upload, { size: 20 }),
+                                    isProcessing ? 'Processing...' : 'Upload PDFs'
+                                ),
+                                React.createElement('button', {
+                                    onClick: addNewSheet,
+                                    className: "flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                                },
+                                    React.createElement(Plus, { size: 20 }),
+                                    "Add Manual"
+                                ),
+                                sheets.length > 0 && React.createElement('button', {
+                                    onClick: generateSummary,
+                                    className: "flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                                },
+                                    React.createElement(Calculator, { size: 20 }),
+                                    "Generate Summary"
+                                )
+                            )
+                        ),
+                        
+                        // Processing Status
+                        (isProcessing || processingStatus) && React.createElement('div', { className: "mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg" },
+                            React.createElement('div', { className: "flex items-center gap-2" },
+                                isProcessing && React.createElement('div', { className: "animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" }),
+                                React.createElement('span', { className: "text-blue-800" }, processingStatus)
+                            )
+                        ),
+
+                        // Errors
+                        errors.length > 0 && React.createElement('div', { className: "mb-4 p-4 bg-red-50 border border-red-200 rounded-lg" },
+                            React.createElement('div', { className: "flex items-start gap-2" },
+                                React.createElement(AlertCircle, { size: 20, className: "text-red-600 flex-shrink-0 mt-0.5" }),
+                                React.createElement('div', null,
+                                    React.createElement('h4', { className: "text-red-800 font-medium mb-1" }, "Processing Errors:"),
+                                    React.createElement('ul', { className: "text-red-700 text-sm space-y-1" },
+                                        errors.map((error, index) =>
+                                            React.createElement('li', { key: index }, `• ${error}`)
+                                        )
+                                    )
+                                )
+                            )
+                        ),
+
+                        sheets.length === 0 && !isProcessing && React.createElement('div', { className: "text-center py-12" },
+                            React.createElement(FileText, { size: 64, className: "mx-auto text-gray-400 mb-4" }),
+                            React.createElement('h3', { className: "text-xl font-semibold text-gray-900 mb-2" }, "No delivery sheets loaded yet"),
+                            React.createElement('p', { className: "text-gray-600 mb-4" }, "Upload PDF delivery sheets or add manual entries to get started"),
+                            React.createElement('div', { className: "flex gap-4 justify-center" },
+                                React.createElement('button', {
+                                    onClick: () => fileInputRef.current?.click(),
+                                    className: "bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors"
+                                }, "Upload PDF Files"),
+                                React.createElement('button', {
+                                    onClick: addNewSheet,
+                                    className: "bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+                                }, "Add Manual Entry")
+                            )
+                        ),
+
+                        // Summary display for sheets
+                        sheets.length > 0 && React.createElement('div', { className: "mb-4 p-4 bg-gray-50 rounded-lg" },
+                            React.createElement('h3', { className: "text-lg font-semibold mb-2" }, `${sheets.length} Delivery Sheets Loaded`),
+                            React.createElement('div', { className: "space-y-2" },
+                                sheets.map((sheet, index) =>
+                                    React.createElement('div', { key: sheet.id, className: "flex justify-between items-center p-2 bg-white rounded border" },
+                                        React.createElement('div', null,
+                                            React.createElement('span', { className: "font-medium" }, sheet.filename || `Manual Sheet #${index + 1}`),
+                                            sheet.customerName && React.createElement('span', { className: "text-gray-600 ml-2" }, `- ${sheet.customerName}`)
+                                        ),
+                                        React.createElement('div', { className: "text-sm text-gray-600" },
+                                            `${sheet.items.length} items, €${(sheet.totalIncVat || 0).toFixed(2)}`
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    ),
+
+                    // Summary Modal
+                    showSummary && summary && React.createElement('div', { className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" },
+                        React.createElement('div', { className: "bg-white rounded-2xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto" },
+                            React.createElement('div', { className: "p-6" },
+                                React.createElement('div', { className: "flex items-center justify-between mb-6" },
+                                    React.createElement('h2', { className: "text-2xl font-bold text-gray-900" }, "Consolidated Summary"),
+                                    React.createElement('div', { className: "flex gap-2" },
+                                        React.createElement('button', {
+                                            onClick: exportToCSV,
+                                            className: "flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                                        },
+                                            React.createElement(Download, { size: 20 }),
+                                            "Export CSV"
+                                        ),
+                                        React.createElement('button', {
+                                            onClick: () => setShowSummary(false),
+                                            className: "text-gray-600 hover:text-gray-800 transition-colors"
+                                        }, "✕")
+                                    )
+                                ),
+
+                                React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-4 gap-4 mb-6" },
+                                    React.createElement('div', { className: "bg-blue-50 p-4 rounded-lg" },
+                                        React.createElement('div', { className: "text-2xl font-bold text-blue-600" }, summary.totalSheets),
+                                        React.createElement('div', { className: "text-sm text-gray-600" }, "Total Sheets")
+                                    ),
+                                    React.createElement('div', { className: "bg-green-50 p-4 rounded-lg" },
+                                        React.createElement('div', { className: "text-2xl font-bold text-green-600" }, `€${summary.totals.totalExVat.toFixed(2)}`),
+                                        React.createElement('div', { className: "text-sm text-gray-600" }, "Total Ex VAT")
+                                    ),
+                                    React.createElement('div', { className: "bg-purple-50 p-4 rounded-lg" },
+                                        React.createElement('div', { className: "text-2xl font-bold text-purple-600" }, `€${summary.totals.totalIncVat.toFixed(2)}`),
+                                        React.createElement('div', { className: "text-sm text-gray-600" }, "Total Inc VAT")
+                                    ),
+                                    React.createElement('div', { className: "bg-orange-50 p-4 rounded-lg" },
+                                        React.createElement('div', { className: "text-2xl font-bold text-orange-600" }, `€${summary.totals.totalVat.toFixed(2)}`),
+                                        React.createElement('div', { className: "text-sm text-gray-600" }, "Total VAT")
+                                    )
+                                ),
+
+                                React.createElement('div', { className: "overflow-x-auto" },
+                                    React.createElement('table', { className: "w-full border-collapse border border-gray-200" },
+                                        React.createElement('thead', null,
+                                            React.createElement('tr', { className: "bg-gray-50" },
+                                                React.createElement('th', { className: "border border-gray-200 p-3 text-left" }, "Product Name"),
+                                                React.createElement('th', { className: "border border-gray-200 p-3 text-right" }, "Total Qty"),
+                                                React.createElement('th', { className: "border border-gray-200 p-3 text-right" }, "Total Ex VAT"),
+                                                React.createElement('th', { className: "border border-gray-200 p-3 text-right" }, "Total Inc VAT"),
+                                                React.createElement('th', { className: "border border-gray-200 p-3 text-right" }, "Avg Unit Price"),
+                                                React.createElement('th', { className: "border border-gray-200 p-3 text-right" }, "Times Ordered")
+                                            )
+                                        ),
+                                        React.createElement('tbody', null,
+                                            summary.consolidatedItems.map((item, index) =>
+                                                React.createElement('tr', { key: index, className: "hover:bg-gray-50" },
+                                                    React.createElement('td', { className: "border border-gray-200 p-3" }, item.name),
+                                                    React.createElement('td', { className: "border border-gray-200 p-3 text-right" }, item.totalQuantity),
+                                                    React.createElement('td', { className: "border border-gray-200 p-3 text-right" }, `€${item.totalExVat.toFixed(2)}`),
+                                                    React.createElement('td', { className: "border border-gray-200 p-3 text-right" }, `€${item.totalIncVat.toFixed(2)}`),
+                                                    React.createElement('td', { className: "border border-gray-200 p-3 text-right" }, `€${item.averageUnitPriceExVat.toFixed(2)}`),
+                                                    React.createElement('td', { className: "border border-gray-200 p-3 text-right" }, item.occurrences)
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            );
+        };
+
+        ReactDOM.render(React.createElement(DeliverySheetConsolidator), document.getElementById('root'));
+    </script>
+</body>
+</html>
