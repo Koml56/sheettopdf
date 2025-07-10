@@ -450,7 +450,7 @@
             }
 
             simulateDemo() {
-                // Demo data for when CORS fails
+                // Demo data for when backend is not available
                 this.products = [
                     {
                         id: '6410405243508',
@@ -458,6 +458,7 @@
                         price: '0,85/kpl',
                         image: 'https://public.keskofiles.com/f/k-ruoka/product/6410405243508?w=172&h=104&dpr=1&q=60&auto=format&fm=jpg&trim=color',
                         link: '/kauppa/tuote/k-menu-pitkajyvainen-riisi-1kg-6410405243508',
+                        fullUrl: 'https://www.k-ruoka.fi/kauppa/tuote/k-menu-pitkajyvainen-riisi-1kg-6410405243508',
                         nutrition: null
                     },
                     {
@@ -466,6 +467,7 @@
                         price: '1,25/kpl',
                         image: 'https://public.keskofiles.com/f/k-ruoka/product/6414500004344?w=172&h=104&dpr=1&q=60&auto=format&fm=jpg&trim=color',
                         link: '/kauppa/tuote/riisi-herkku-riisimuro-500g-6414500004344',
+                        fullUrl: 'https://www.k-ruoka.fi/kauppa/tuote/riisi-herkku-riisimuro-500g-6414500004344',
                         nutrition: null
                     },
                     {
@@ -474,12 +476,13 @@
                         price: '2,95/kpl',
                         image: 'https://public.keskofiles.com/f/k-ruoka/product/8850100074102?w=172&h=104&dpr=1&q=60&auto=format&fm=jpg&trim=color',
                         link: '/kauppa/tuote/royal-umbrella-jasmiiniriisi-1kg-8850100074102',
+                        fullUrl: 'https://www.k-ruoka.fi/kauppa/tuote/royal-umbrella-jasmiiniriisi-1kg-8850100074102',
                         nutrition: null
                     }
                 ];
                 
                 this.displayProducts();
-                this.showStatus('Demo mode: Showing sample products (CORS restriction)', 'info');
+                this.showStatus('Demo mode: Start the backend server to fetch real data from K-Ruoka.fi', 'info');
             }
 
             displayProducts() {
